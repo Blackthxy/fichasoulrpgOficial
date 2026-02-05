@@ -58,7 +58,6 @@ def carregar_ficha(nome):
         if "pericias" in linha and linha["pericias"]:
             st.session_state.pericias = linha["pericias"]
 
-            # 🔥 injeta valores nos widgets
             for p, dados in linha["pericias"].items():
                 st.session_state[f"a_{p}"] = dados["atributo"]
                 st.session_state[f"t_{p}"] = dados["treino"]
@@ -188,7 +187,26 @@ with aba_ficha:
 
         bonus = st.session_state.atributos[st.session_state[f"a_{p}"]] + st.session_state[f"t_{p}"] + st.session_state[f"o_{p}"]
         c5.selectbox("B", [bonus], key=f"b_{p}", disabled=True, label_visibility="collapsed")
+    
+    st.divider()
+    st.subheader("🎲 Rolagem de Perícia")
 
+    col1, col2 = st.columns([2,1])
+    pericia_roll = col1.selectbox("Escolha a perícia", list(pericias_valores.keys()))
+    expressao = col1.text_input("Digite a rolagem (ex: 2#2d6+1)", "2d6")
+
+    if col2.button("Rolar Agora"):
+        dados_pericia = pericias_valores[pericia_roll]
+        atributo_valor = atributos.get(dados_pericia["atributo"], 0)
+        bonus_total = calcular_bonus_pericia(atributo_valor, dados_pericia["treino"], dados_pericia["outros"])
+        resultado = rolar_expressao(expressao, bonus_total)
+
+        if resultado:
+            totais, detalhes = resultado
+            for i, (t, d) in enumerate(zip(totais, detalhes), 1):
+                st.success(f"Rolagem {i}: 🎲 {d} = **{t}**")
+        else:
+            st.error("Expressão inválida!")
 # ================= AUTO SAVE =================
 if nome:
     estado_dict = {
@@ -252,4 +270,5 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+
 

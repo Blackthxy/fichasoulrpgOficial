@@ -39,6 +39,7 @@ def salvar_ficha(nome):
     if r.status_code not in (200, 201):
         st.error(f"Erro ao salvar: {r.text}")
 
+# 🔥 FUNÇÃO CORRIGIDA
 def carregar_ficha(nome):
     r = requests.get(
         f"{SUPABASE_URL}/rest/v1/fichas?nome=eq.{nome}",
@@ -47,14 +48,23 @@ def carregar_ficha(nome):
 
     if r.status_code == 200 and r.json():
         dados = r.json()[0]["dados"]
-        for k, v in dados.items():
-            st.session_state[k] = v
 
+        st.session_state.hp = dados.get("hp", 0)
+        st.session_state.pe = dados.get("pe", 0)
+        st.session_state.fadiga = dados.get("fadiga", 0)
+        st.session_state.inventario = dados.get("inventario", [])
+        st.session_state.manobras = dados.get("manobras", [])
+        st.session_state.armas = dados.get("armas", [])
+
+        atributos_salvos = dados.get("atributos", {})
+        for atr, valor in atributos_salvos.items():
+            st.session_state.atributos[atr] = valor
+            st.session_state[f"atr_{atr}"] = valor  # sincroniza com os inputs
 
 # ================= CONFIGURAÇÃO DA PÁGINA =================
 st.set_page_config(page_title="Ficha Digital RPG", layout="wide")
 
-# ================= LISTAS FIXAS DO SISTEMA =================
+# ================= LISTAS FIXAS =================
 ATRIBUTOS = ["FOR", "AGI", "PRE", "VIT", "INT"]
 
 PERICIAS = [
@@ -168,25 +178,22 @@ with aba_status:
     st.subheader("Vida")
     c1, c2, c3 = st.columns([1,3,1])
     c1.button("➖", key="hp_menos_btn", on_click=alterar, args=(-1,"hp",hp_max))
-    hp_ratio = min(st.session_state.hp / hp_max, 1.0) if hp_max else 0
-    c2.progress(hp_ratio, text=f"HP {st.session_state.hp}/{hp_max}")
+    c2.progress(min(st.session_state.hp / hp_max, 1.0) if hp_max else 0, text=f"HP {st.session_state.hp}/{hp_max}")
     c3.button("➕", key="hp_mais_btn", on_click=alterar, args=(1,"hp",hp_max))
 
     st.subheader("Energia")
     c1, c2, c3 = st.columns([1,3,1])
     c1.button("➖", key="pe_menos_btn", on_click=alterar, args=(-1,"pe",pe_max))
-    pe_ratio = min(st.session_state.pe / pe_max, 1.0) if pe_max else 0
-    c2.progress(pe_ratio, text=f"PE {st.session_state.pe}/{pe_max}")
+    c2.progress(min(st.session_state.pe / pe_max, 1.0) if pe_max else 0, text=f"PE {st.session_state.pe}/{pe_max}")
     c3.button("➕", key="pe_mais_btn", on_click=alterar, args=(1,"pe",pe_max))
 
     st.subheader("Fadiga")
     c1, c2, c3 = st.columns([1,3,1])
     c1.button("➖", key="fadiga_menos_btn", on_click=alterar, args=(-1,"fadiga",5))
-    fadiga_ratio = min(st.session_state.fadiga / 5, 1.0)
-    c2.progress(fadiga_ratio, text=f"Fadiga {st.session_state.fadiga}/5")
+    c2.progress(min(st.session_state.fadiga / 5, 1.0), text=f"Fadiga {st.session_state.fadiga}/5")
     c3.button("➕", key="fadiga_mais_btn", on_click=alterar, args=(1,"fadiga",5))
 
-# ================= SALVAMENTO AUTOMÁTICO INTELIGENTE =================
+# ================= SALVAMENTO AUTOMÁTICO =================
 if nome:
     estado_atual = json.dumps({
         "hp": st.session_state.hp,
@@ -293,3 +300,4 @@ with aba_combate:
         st.success(f"Dano: {rolagens} + {bonus_dano} = {total}")
 
 # ================= FIM DO CÓDIGO =================
+

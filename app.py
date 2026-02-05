@@ -187,20 +187,20 @@ with aba_status:
     c3.button("➕", key="fadiga_mais_btn", on_click=alterar, args=(1,"fadiga",5))
 
 # ================= SALVAMENTO AUTOMÁTICO INTELIGENTE =================
-estado_atual = json.dumps({
-    "hp": st.session_state.hp,
-    "pe": st.session_state.pe,
-    "fadiga": st.session_state.fadiga,
-    "atributos": st.session_state.atributos,
-    "inventario": st.session_state.inventario,
-    "manobras": st.session_state.manobras,
-    "armas": st.session_state.armas
-}, sort_keys=True)
+if nome:
+    estado_atual = json.dumps({
+        "hp": st.session_state.hp,
+        "pe": st.session_state.pe,
+        "fadiga": st.session_state.fadiga,
+        "atributos": st.session_state.atributos,
+        "inventario": st.session_state.inventario,
+        "manobras": st.session_state.manobras,
+        "armas": st.session_state.armas
+    }, sort_keys=True)
 
-if nome and st.session_state.get("ultimo_estado_salvo") != estado_atual:
-    salvar_ficha(nome)
-    st.session_state.ultimo_estado_salvo = estado_atual
-
+    if st.session_state.get("ultimo_estado_salvo") != estado_atual:
+        salvar_ficha(nome)
+        st.session_state.ultimo_estado_salvo = estado_atual
 
 # ================= ABA PERÍCIAS =================
 with aba_ficha:

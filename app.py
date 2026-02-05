@@ -310,34 +310,98 @@ if nome:
 # ================= INVENTÁRIO =================
 with aba_inventario:
     st.subheader("🎒 Inventário")
-    with st.form("item"):
-        n = st.text_input("Nome")
-        q = st.number_input("Qtd",1,99,1)
-        d = st.text_area("Desc")
-        if st.form_submit_button("Adicionar"):
-            st.session_state.inventario.append({"nome":n,"qtd":q,"desc":d})
-            st.rerun()
-    for i,item in enumerate(st.session_state.inventario):
-        st.write(f"**{item['nome']}** x{item['qtd']} — {item['desc']}")
-        if st.button("Remover", key=f"ri{i}"):
-            st.session_state.inventario.pop(i)
-            st.rerun()
+
+    # BOTÃO PARA MOSTRAR FORMULÁRIO
+    with st.expander("➕ Adicionar Novo Item", expanded=False):
+        with st.form("form_item"):
+            c1, c2 = st.columns([2,1])
+            nome_item = c1.text_input("Nome do Item")
+            qtd_item = c2.number_input("Quantidade", 1, 99, 1)
+            desc_item = st.text_area("Descrição")
+
+            if st.form_submit_button("Salvar Item"):
+                st.session_state.inventario.append({
+                    "nome": nome_item,
+                    "qtd": qtd_item,
+                    "desc": desc_item
+                })
+                st.rerun()
+
+    st.divider()
+
+    # LISTA DE ITENS EM FORMATO DE CARDS
+    if not st.session_state.inventario:
+        st.info("Nenhum item no inventário.")
+    else:
+        for i, item in enumerate(st.session_state.inventario):
+            with st.container(border=True):
+                col1, col2 = st.columns([5,1])
+
+                with col1:
+                    st.markdown(f"### 🧩 {item['nome']}  ")
+                    st.markdown(f"**Quantidade:** x{item['qtd']}")
+
+                    # descrição escondida até clicar
+                    with st.expander("Ver descrição"):
+                        st.write(item["desc"] if item["desc"] else "Sem descrição.")
+
+                with col2:
+                    if st.button("🗑️", key=f"del_item_{i}"):
+                        st.session_state.inventario.pop(i)
+                        st.rerun()
 
 # ================= MANOBRAS =================
 with aba_manobras:
     st.subheader("⚔️ Manobras")
-    with st.form("manobra"):
-        n = st.text_input("Nome")
-        c = st.number_input("Custo",0,100,0)
-        d = st.text_area("Desc")
-        if st.form_submit_button("Criar"):
-            st.session_state.manobras.append({"nome":n,"custo":c,"desc":d})
-            st.rerun()
-    for i,m in enumerate(st.session_state.manobras):
-        st.write(f"**{m['nome']}** (Custo {m['custo']})")
-        if st.button("Usar", key=f"um{i}") and st.session_state.pe>=m["custo"]:
-            st.session_state.pe -= m["custo"]
-            st.rerun()
+
+    # FORMULÁRIO ESCONDIDO
+    with st.expander("➕ Criar Nova Manobra", expanded=False):
+        with st.form("form_manobra"):
+            nome_m = st.text_input("Nome da Manobra")
+            custo_m = st.number_input("Custo de Fadiga", 0, 5, 0)
+            desc_m = st.text_area("Descrição da Manobra")
+
+            if st.form_submit_button("Salvar Manobra"):
+                st.session_state.manobras.append({
+                    "nome": nome_m,
+                    "custo": custo_m,
+                    "desc": desc_m
+                })
+                st.rerun()
+
+    st.divider()
+
+    # CARDS DAS MANOBRAS
+    if not st.session_state.manobras:
+        st.info("Nenhuma manobra cadastrada.")
+    else:
+        for i, m in enumerate(st.session_state.manobras):
+            with st.container(border=True):
+                col1, col2 = st.columns([5,1])
+
+                with col1:
+                    st.markdown(f"### ⚔️ {m['nome']}")
+                    st.markdown(f"**Custo:** {m['custo']} Fadiga")
+
+                    with st.expander("Ver descrição"):
+                        st.write(m["desc"] if m["desc"] else "Sem descrição.")
+
+                with col2:
+                    usar = st.button("Usar", key=f"usar_m_{i}")
+                    apagar = st.button("🗑️", key=f"del_m_{i}")
+
+                    if usar:
+                        if st.session_state.fadiga >= m["custo"]:
+                            st.session_state.fadiga -= m["custo"]
+                            st.success("Manobra usada! Fadiga reduzida.")
+                            st.rerun()
+                        else:
+                            st.error("Fadiga insuficiente!")
+
+                    if apagar:
+                        st.session_state.manobras.pop(i)
+                        st.rerun()
+
 
 # ================= COMBATE =================
 with aba_combate:
@@ -348,6 +412,7 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+
 
 
 

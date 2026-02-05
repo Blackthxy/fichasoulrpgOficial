@@ -162,18 +162,56 @@ with aba_status:
 # ================= PERÍCIAS =================
 with aba_ficha:
     st.subheader("Perícias")
+
     for p in PERICIAS:
         if p not in st.session_state.pericias:
-            st.session_state.pericias[p] = {"atributo": extrair_atributo(p), "treino": 0, "outros": 0}
-        d = st.session_state.pericias[p]
-        c1,c2,c3,c4,c5 = st.columns([2,1,1,1,1])
-        c1.write(p.split("[")[0])
-        d["atributo"] = c2.selectbox("A", ATRIBUTOS, ATRIBUTOS.index(d["atributo"]), key=f"a_{p}", label_visibility="collapsed")
-        d["treino"] = c3.selectbox("T", [0,3,5], [0,3,5].index(d["treino"]), key=f"t_{p}", label_visibility="collapsed")
-        d["outros"] = c4.selectbox("O", list(range(11)), list(range(11)).index(d["outros"]), key=f"o_{p}", label_visibility="collapsed")
-        bonus = st.session_state.atributos[d["atributo"]] + d["treino"] + d["outros"]
-        c5.selectbox("B", [bonus], key=f"b_{p}", disabled=True, label_visibility="collapsed")
+            st.session_state.pericias[p] = {
+                "atributo": extrair_atributo(p),
+                "treino": 0,
+                "outros": 0
+            }
 
+        d = st.session_state.pericias[p]
+
+        c1, c2, c3, c4, c5 = st.columns([2,1,1,1,1])
+        c1.write(p.split("[")[0])
+
+        atributo = c2.selectbox(
+            "A", ATRIBUTOS,
+            index=ATRIBUTOS.index(d["atributo"]),
+            key=f"a_{p}",
+            label_visibility="collapsed"
+        )
+
+        treino = c3.selectbox(
+            "T", [0,3,5],
+            index=[0,3,5].index(d["treino"]),
+            key=f"t_{p}",
+            label_visibility="collapsed"
+        )
+
+        outros = c4.selectbox(
+            "O", list(range(11)),
+            index=list(range(11)).index(d["outros"]),
+            key=f"o_{p}",
+            label_visibility="collapsed"
+        )
+
+        # 🔥 FORÇA atualização no session_state (isso ativa o autosave)
+        st.session_state.pericias[p] = {
+            "atributo": atributo,
+            "treino": treino,
+            "outros": outros
+        }
+
+        bonus = st.session_state.atributos[atributo] + treino + outros
+
+        c5.selectbox(
+            "B", [bonus],
+            key=f"b_{p}",
+            disabled=True,
+            label_visibility="collapsed"
+        )
 
 # ================= AUTO SAVE =================
 if nome:
@@ -230,3 +268,4 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+

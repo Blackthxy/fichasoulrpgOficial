@@ -30,11 +30,14 @@ def salvar_ficha(nome):
     headers = HEADERS.copy()
     headers["Prefer"] = "resolution=merge-duplicates"
 
-    requests.post(
+    r = requests.post(
         f"{SUPABASE_URL}/rest/v1/fichas?on_conflict=nome",
         headers=headers,
         data=json.dumps(payload)
     )
+
+    if r.status_code not in (200, 201):
+        st.error(f"Erro ao salvar: {r.text}")
 
 def carregar_ficha(nome):
     r = requests.get(
@@ -136,9 +139,9 @@ with aba_status:
     col1, col2 = st.columns(2)
 
     with col1:
-        nome = st.text_input("Nome", "Personagem")
+        nome = st.text_input("Nome", placeholder="Digite o nome do personagem")
 
-        if st.session_state.get("ultimo_nome") != nome:
+        if nome and st.session_state.get("ultimo_nome") != nome:
             carregar_ficha(nome)
             st.session_state.ultimo_nome = nome
 
@@ -182,6 +185,22 @@ with aba_status:
     fadiga_ratio = min(st.session_state.fadiga / 5, 1.0)
     c2.progress(fadiga_ratio, text=f"Fadiga {st.session_state.fadiga}/5")
     c3.button("➕", key="fadiga_mais_btn", on_click=alterar, args=(1,"fadiga",5))
+
+# ================= SALVAMENTO AUTOMÁTICO INTELIGENTE =================
+estado_atual = json.dumps({
+    "hp": st.session_state.hp,
+    "pe": st.session_state.pe,
+    "fadiga": st.session_state.fadiga,
+    "atributos": st.session_state.atributos,
+    "inventario": st.session_state.inventario,
+    "manobras": st.session_state.manobras,
+    "armas": st.session_state.armas
+}, sort_keys=True)
+
+if nome and st.session_state.get("ultimo_estado_salvo") != estado_atual:
+    salvar_ficha(nome)
+    st.session_state.ultimo_estado_salvo = estado_atual
+
 
 # ================= ABA PERÍCIAS =================
 with aba_ficha:
@@ -273,7 +292,4 @@ with aba_combate:
         total = sum(rolagens) + bonus_dano
         st.success(f"Dano: {rolagens} + {bonus_dano} = {total}")
 
-# ================= SALVAMENTO AUTOMÁTICO =================
-if nome:
-    salvar_ficha(nome)
-
+# ================= FIM DO CÓDIGO =================

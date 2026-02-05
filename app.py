@@ -34,14 +34,11 @@ def salvar_ficha(nome):
     headers = HEADERS.copy()
     headers["Prefer"] = "resolution=merge-duplicates"
 
-    r = requests.post(
+    requests.post(
         f"{SUPABASE_URL}/rest/v1/fichas?on_conflict=nome",
         headers=headers,
         data=json.dumps(payload)
     )
-
-    if r.status_code not in (200, 201):
-        st.error(f"Erro ao salvar: {r.text}")
 
 
 def carregar_ficha(nome):
@@ -49,14 +46,12 @@ def carregar_ficha(nome):
         f"{SUPABASE_URL}/rest/v1/fichas?nome=eq.{nome}",
         headers=HEADERS
     )
-
     if r.status_code == 200 and r.json():
-        dados = r.json()[0]["dados"]
-        for k, v in dados.items():
+        for k, v in r.json()[0]["dados"].items():
             st.session_state[k] = v
 
 
-# ================= CONFIGURAÇÃO =================
+# ================= CONFIG =================
 st.set_page_config(page_title="Ficha Digital RPG", layout="wide")
 
 ATRIBUTOS = ["FOR", "AGI", "PRE", "VIT", "INT"]
@@ -82,16 +77,10 @@ def extrair_atributo(nome_pericia):
 
 # ================= ESTADOS =================
 defaults = {
-    "hp": 0,
-    "pe": 0,
-    "fadiga": 5,
+    "hp": 0, "pe": 0, "fadiga": 5,
     "atributos": {a: 0 for a in ATRIBUTOS},
-    "inventario": [],
-    "manobras": [],
-    "armas": [],
-    "pericias": {},
-    "nivel": 1,
-    "K": 1,
+    "inventario": [], "manobras": [], "armas": [],
+    "pericias": {}, "nivel": 1, "K": 1,
     "conhecimento": CONHECIMENTOS[0]
 }
 for k, v in defaults.items():
@@ -101,43 +90,24 @@ for k, v in defaults.items():
 
 # ================= FUNÇÕES =================
 def calcular_status(atributos, nivel, K):
-    hp_max = 10 * atributos["VIT"] + (atributos["VIT"] + nivel) * K
-    pe_max = 5 * atributos["INT"] + (atributos["INT"] + nivel) * K
-    return hp_max, pe_max
+    return (
+        10 * atributos["VIT"] + (atributos["VIT"] + nivel) * K,
+        5 * atributos["INT"] + (atributos["INT"] + nivel) * K
+    )
 
 def alterar(valor, chave, maximo=None):
     st.session_state[chave] += valor
     if maximo is not None:
         st.session_state[chave] = max(0, min(maximo, st.session_state[chave]))
-    else:
-        st.session_state[chave] = max(0, st.session_state[chave])
-
-def calcular_bonus_pericia(atributo, treino, outros):
-    return atributo + treino + outros
 
 def rolar_expressao(expr, bonus=0):
-    expr = expr.replace(" ", "").lower()
-    vezes = 1
-    if "#" in expr:
-        partes = expr.split("#")
-        vezes = int(partes[0])
-        expr = partes[1]
-
-    match = re.match(r"(\d+)d(\d+)([+-]\d+)?", expr)
+    match = re.match(r"(\d+)d(\d+)([+-]\d+)?", expr.replace(" ", "").lower())
     if not match:
         return None
-
-    qtd = int(match.group(1))
-    lados = int(match.group(2))
-    bonus_extra = int(match.group(3)) if match.group(3) else 0
-
-    resultados, detalhes = [], []
-    for _ in range(vezes):
-        rolagens = [random.randint(1, lados) for _ in range(qtd)]
-        total = sum(rolagens) + bonus_extra + bonus
-        resultados.append(total)
-        detalhes.append(f"{rolagens}+{bonus_extra}+{bonus}")
-    return resultados, detalhes
+    qtd, lados = int(match.group(1)), int(match.group(2))
+    extra = int(match.group(3)) if match.group(3) else 0
+    rolagens = [random.randint(1, lados) for _ in range(qtd)]
+    return sum(rolagens) + extra + bonus, rolagens
 
 
 # ================= ABAS =================
@@ -145,137 +115,91 @@ aba_status, aba_ficha, aba_inventario, aba_manobras, aba_combate = st.tabs(
     ["Status", "Perícias", "Inventário", "Manobras", "Combate"]
 )
 
-# ================= ABA STATUS =================
+# ================= STATUS =================
 with aba_status:
-    col1, col2 = st.columns(2)
+    c1, c2 = st.columns(2)
 
-    with col1:
-        nome = st.text_input("Nome", placeholder="Digite o nome do personagem")
-
+    with c1:
+        nome = st.text_input("Nome")
         if nome and st.session_state.get("ultimo_nome") != nome:
             carregar_ficha(nome)
             st.session_state.ultimo_nome = nome
 
-        st.session_state.nivel = st.number_input("Nível", min_value=1, value=st.session_state.nivel)
-        st.session_state.K = st.number_input("K", min_value=1, value=st.session_state.K)
+        st.session_state.nivel = st.number_input("Nível", 1, value=st.session_state.nivel)
+        st.session_state.K = st.number_input("K", 1, value=st.session_state.K)
 
-    with col2:
+    with c2:
         st.session_state.conhecimento = st.selectbox(
-            "Conhecimento",
-            CONHECIMENTOS,
+            "Conhecimento", CONHECIMENTOS,
             index=CONHECIMENTOS.index(st.session_state.conhecimento)
         )
 
-    st.divider()
-
     cols = st.columns(len(ATRIBUTOS))
     for i, a in enumerate(ATRIBUTOS):
-        st.session_state.atributos[a] = cols[i].number_input(a, min_value=0, value=st.session_state.atributos[a])
+        st.session_state.atributos[a] = cols[i].number_input(a, 0, value=st.session_state.atributos[a])
 
-    atributos = st.session_state.atributos
-    hp_max, pe_max = calcular_status(atributos, st.session_state.nivel, st.session_state.K)
-
-    st.session_state.hp = min(st.session_state.hp, hp_max)
-    st.session_state.pe = min(st.session_state.pe, pe_max)
-    st.session_state.fadiga = min(st.session_state.fadiga, 5)
+    hp_max, pe_max = calcular_status(st.session_state.atributos, st.session_state.nivel, st.session_state.K)
 
     st.subheader("Vida")
-    c1, c2, c3 = st.columns([1,3,1])
-    c1.button("➖", on_click=alterar, args=(-1,"hp",hp_max))
-    c2.progress(min(st.session_state.hp / hp_max, 1.0) if hp_max else 0, text=f"HP {st.session_state.hp}/{hp_max}")
-    c3.button("➕", on_click=alterar, args=(1,"hp",hp_max))
+    a,b,c = st.columns([1,3,1])
+    a.button("➖", key="hp_menos", on_click=alterar, args=(-1,"hp",hp_max))
+    b.progress(st.session_state.hp/hp_max if hp_max else 0, text=f"HP {st.session_state.hp}/{hp_max}")
+    c.button("➕", key="hp_mais", on_click=alterar, args=(1,"hp",hp_max))
 
     st.subheader("Energia")
-    c1, c2, c3 = st.columns([1,3,1])
-    c1.button("➖", on_click=alterar, args=(-1,"pe",pe_max))
-    c2.progress(min(st.session_state.pe / pe_max, 1.0) if pe_max else 0, text=f"PE {st.session_state.pe}/{pe_max}")
-    c3.button("➕", on_click=alterar, args=(1,"pe",pe_max))
+    a,b,c = st.columns([1,3,1])
+    a.button("➖", key="pe_menos", on_click=alterar, args=(-1,"pe",pe_max))
+    b.progress(st.session_state.pe/pe_max if pe_max else 0, text=f"PE {st.session_state.pe}/{pe_max}")
+    c.button("➕", key="pe_mais", on_click=alterar, args=(1,"pe",pe_max))
 
     st.subheader("Fadiga")
-    c1, c2, c3 = st.columns([1,3,1])
-    c1.button("➖", on_click=alterar, args=(-1,"fadiga",5))
-    c2.progress(st.session_state.fadiga / 5, text=f"Fadiga {st.session_state.fadiga}/5")
-    c3.button("➕", on_click=alterar, args=(1,"fadiga",5))
+    a,b,c = st.columns([1,3,1])
+    a.button("➖", key="fadiga_menos", on_click=alterar, args=(-1,"fadiga",5))
+    b.progress(st.session_state.fadiga/5, text=f"Fadiga {st.session_state.fadiga}/5")
+    c.button("➕", key="fadiga_mais", on_click=alterar, args=(1,"fadiga",5))
 
 
-# ================= ABA PERÍCIAS =================
+# ================= PERÍCIAS =================
 with aba_ficha:
     st.subheader("Perícias")
-
-    for pericia in PERICIAS:
-        nome_limpo = pericia.split("[")[0]
-        atributo_padrao = extrair_atributo(pericia)
-
-        if pericia not in st.session_state.pericias:
-            st.session_state.pericias[pericia] = {"atributo": atributo_padrao, "treino": 0, "outros": 0}
-
-        dados = st.session_state.pericias[pericia]
-
-        c1, c2, c3, c4, c5 = st.columns([2,1,1,1,1])
-        c1.markdown(nome_limpo)
-
-        dados["atributo"] = c2.selectbox("Atributo", ATRIBUTOS, index=ATRIBUTOS.index(dados["atributo"]), key=f"atrib_{pericia}", label_visibility="collapsed")
-        dados["treino"] = c3.selectbox("Treino", [0,3,5], index=[0,3,5].index(dados["treino"]), key=f"treino_{pericia}", label_visibility="collapsed")
-        dados["outros"] = c4.selectbox("Outros", list(range(11)), index=list(range(11)).index(dados["outros"]), key=f"outros_{pericia}", label_visibility="collapsed")
-
-        bonus_total = atributos.get(dados["atributo"], 0) + dados["treino"] + dados["outros"]
-        c5.selectbox("Bônus", [bonus_total], key=f"bonus_{pericia}", label_visibility="collapsed", disabled=True)
-
-    st.divider()
-    st.subheader("🎲 Rolagem de Perícia")
-
-    pericia_roll = st.selectbox("Escolha a perícia", list(st.session_state.pericias.keys()))
-    expressao = st.text_input("Digite a rolagem (ex: 2#2d6+1)", "2d6")
-
-    if st.button("Rolar Agora"):
-        dados_pericia = st.session_state.pericias[pericia_roll]
-        bonus_total = calcular_bonus_pericia(atributos.get(dados_pericia["atributo"], 0), dados_pericia["treino"], dados_pericia["outros"])
-        resultado = rolar_expressao(expressao, bonus_total)
-
-        if resultado:
-            totais, detalhes = resultado
-            for i, (t, d) in enumerate(zip(totais, detalhes), 1):
-                st.success(f"Rolagem {i}: 🎲 {d} = **{t}**")
-        else:
-            st.error("Expressão inválida!")
+    for p in PERICIAS:
+        if p not in st.session_state.pericias:
+            st.session_state.pericias[p] = {"atributo": extrair_atributo(p), "treino": 0, "outros": 0}
+        d = st.session_state.pericias[p]
+        c1,c2,c3,c4,c5 = st.columns([2,1,1,1,1])
+        c1.write(p.split("[")[0])
+        d["atributo"] = c2.selectbox("A", ATRIBUTOS, ATRIBUTOS.index(d["atributo"]), key=f"a_{p}", label_visibility="collapsed")
+        d["treino"] = c3.selectbox("T", [0,3,5], [0,3,5].index(d["treino"]), key=f"t_{p}", label_visibility="collapsed")
+        d["outros"] = c4.selectbox("O", list(range(11)), list(range(11)).index(d["outros"]), key=f"o_{p}", label_visibility="collapsed")
+        bonus = st.session_state.atributos[d["atributo"]] + d["treino"] + d["outros"]
+        c5.selectbox("B", [bonus], key=f"b_{p}", disabled=True, label_visibility="collapsed")
 
 
 # ================= AUTO SAVE =================
 if nome:
-    estado_atual = json.dumps({
-        "hp": st.session_state.hp,
-        "pe": st.session_state.pe,
-        "fadiga": st.session_state.fadiga,
-        "atributos": st.session_state.atributos,
-        "inventario": st.session_state.inventario,
-        "manobras": st.session_state.manobras,
-        "armas": st.session_state.armas,
-        "pericias": st.session_state.pericias,
-        "nivel": st.session_state.nivel,
-        "K": st.session_state.K,
-        "conhecimento": st.session_state.conhecimento
-    }, sort_keys=True)
+    estado = json.dumps({k: st.session_state[k] for k in [
+        "hp","pe","fadiga","atributos","inventario","manobras","armas",
+        "pericias","nivel","K","conhecimento"
+    ]}, sort_keys=True)
 
-    if st.session_state.get("ultimo_estado_salvo") != estado_atual:
+    if st.session_state.get("ultimo_estado_salvo") != estado:
         salvar_ficha(nome)
-        st.session_state.ultimo_estado_salvo = estado_atual
+        st.session_state.ultimo_estado_salvo = estado
 
 
 # ================= INVENTÁRIO =================
 with aba_inventario:
     st.subheader("🎒 Inventário")
-
-    with st.form("novo_item", clear_on_submit=True):
-        nome_item = st.text_input("Nome do Item")
-        qtd = st.number_input("Quantidade", 1, 99, 1)
-        desc = st.text_area("Descrição")
-        if st.form_submit_button("Adicionar") and nome_item:
-            st.session_state.inventario.append({"nome": nome_item,"qtd": qtd,"desc": desc})
+    with st.form("item"):
+        n = st.text_input("Nome")
+        q = st.number_input("Qtd",1,99,1)
+        d = st.text_area("Desc")
+        if st.form_submit_button("Adicionar"):
+            st.session_state.inventario.append({"nome":n,"qtd":q,"desc":d})
             st.rerun()
-
-    for i, item in enumerate(st.session_state.inventario):
+    for i,item in enumerate(st.session_state.inventario):
         st.write(f"**{item['nome']}** x{item['qtd']} — {item['desc']}")
-        if st.button("Remover", key=f"rem_item_{i}"):
+        if st.button("Remover", key=f"ri{i}"):
             st.session_state.inventario.pop(i)
             st.rerun()
 
@@ -283,18 +207,16 @@ with aba_inventario:
 # ================= MANOBRAS =================
 with aba_manobras:
     st.subheader("⚔️ Manobras")
-
-    with st.form("nova_manobra", clear_on_submit=True):
-        nome_m = st.text_input("Nome da Manobra")
-        custo_m = st.number_input("Custo de PE", 0, 100, 0)
-        desc_m = st.text_area("Descrição")
-        if st.form_submit_button("Criar Manobra") and nome_m:
-            st.session_state.manobras.append({"nome": nome_m,"custo": custo_m,"desc": desc_m})
+    with st.form("manobra"):
+        n = st.text_input("Nome")
+        c = st.number_input("Custo",0,100,0)
+        d = st.text_area("Desc")
+        if st.form_submit_button("Criar"):
+            st.session_state.manobras.append({"nome":n,"custo":c,"desc":d})
             st.rerun()
-
-    for i, m in enumerate(st.session_state.manobras):
-        st.write(f"**{m['nome']}** (Custo {m['custo']} PE) — {m['desc']}")
-        if st.button("Usar", key=f"usar_m_{i}") and st.session_state.pe >= m["custo"]:
+    for i,m in enumerate(st.session_state.manobras):
+        st.write(f"**{m['nome']}** (Custo {m['custo']})")
+        if st.button("Usar", key=f"um{i}") and st.session_state.pe>=m["custo"]:
             st.session_state.pe -= m["custo"]
             st.rerun()
 
@@ -302,12 +224,9 @@ with aba_manobras:
 # ================= COMBATE =================
 with aba_combate:
     st.subheader("⚔️ Combate")
-
-    qtd = st.number_input("Quantidade de Dados", 1, 10, 1)
-    lados = st.selectbox("Tipo de Dado", [4,6,8,10,12,20])
-    bonus_dano = st.number_input("Bônus de Dano", 0, 50, 0)
-
-    if st.button("💥 Rolar Dano"):
-        rolagens = [random.randint(1,lados) for _ in range(qtd)]
-        total = sum(rolagens) + bonus_dano
-        st.success(f"Dano: {rolagens} + {bonus_dano} = {total}")
+    q = st.number_input("Qtd Dados",1,10,1)
+    l = st.selectbox("Dado",[4,6,8,10,12,20])
+    b = st.number_input("Bônus",0,50,0)
+    if st.button("Rolar Dano", key="rolar_dano"):
+        r = [random.randint(1,l) for _ in range(q)]
+        st.success(f"Dano: {r} + {b} = {sum(r)+b}")

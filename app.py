@@ -206,19 +206,39 @@ with aba_ficha:
                 "outros": 0
             }
 
-        d = st.session_state.pericias[p]
+        # garante que os widgets carreguem os valores salvos
+        if f"a_{p}" not in st.session_state:
+            st.session_state[f"a_{p}"] = st.session_state.pericias[p]["atributo"]
+        if f"t_{p}" not in st.session_state:
+            st.session_state[f"t_{p}"] = st.session_state.pericias[p]["treino"]
+        if f"o_{p}" not in st.session_state:
+            st.session_state[f"o_{p}"] = st.session_state.pericias[p]["outros"]
 
         c1, c2, c3, c4, c5 = st.columns([2,1,1,1,1])
         c1.write(p.split("[")[0])
 
-        c2.selectbox("A", ATRIBUTOS, key=f"a_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
-        c3.selectbox("T", [0,3,5], key=f"t_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
-        c4.selectbox("O", list(range(11)), key=f"o_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
+        c2.selectbox("A", ATRIBUTOS, key=f"a_{p}",
+                     on_change=atualizar_pericia, args=(p,),
+                     label_visibility="collapsed")
 
-        bonus = st.session_state.atributos[st.session_state[f"a_{p}"]] + st.session_state[f"t_{p}"] + st.session_state[f"o_{p}"]
-        c5.selectbox("B", [bonus], key=f"b_{p}", disabled=True, label_visibility="collapsed")
-    
-       st.divider()
+        c3.selectbox("T", [0,3,5], key=f"t_{p}",
+                     on_change=atualizar_pericia, args=(p,),
+                     label_visibility="collapsed")
+
+        c4.selectbox("O", list(range(11)), key=f"o_{p}",
+                     on_change=atualizar_pericia, args=(p,),
+                     label_visibility="collapsed")
+
+        bonus = (
+            st.session_state.atributos[st.session_state[f"a_{p}"]] +
+            st.session_state[f"t_{p}"] +
+            st.session_state[f"o_{p}"]
+        )
+        c5.selectbox("B", [bonus], key=f"b_{p}",
+                     disabled=True, label_visibility="collapsed")
+
+    # -------- ROLAGEM DE PERÍCIA (AGORA DENTRO DA ABA) --------
+    st.divider()
     st.subheader("🎲 Rolagem de Perícia")
 
     pericias_valores = st.session_state.pericias
@@ -253,7 +273,8 @@ with aba_ficha:
             for i, (total, rolls) in enumerate(zip(totais, detalhes), 1):
                 st.success(f"Rolagem {i}: 🎲 {rolls} + bônus {bonus_total} = **{total}**")
         else:
-            st.error("Expressão inválida! Use formato tipo 2d6, 1d20+3 ou 2#1d20")
+            st.error("Expressão inválida!")
+
 
 # ================= AUTO SAVE =================
 if nome:
@@ -318,6 +339,7 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+
 
 
 

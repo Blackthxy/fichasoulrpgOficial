@@ -74,6 +74,12 @@ def extrair_atributo(nome_pericia):
     match = re.search(r"\[(.*?)\]", nome_pericia)
     return match.group(1) if match else None
 
+def atualizar_pericia(p):
+    st.session_state.pericias[p] = {
+        "atributo": st.session_state[f"a_{p}"],
+        "treino": st.session_state[f"t_{p}"],
+        "outros": st.session_state[f"o_{p}"]
+    }
 
 # ================= ESTADOS =================
 defaults = {
@@ -176,35 +182,40 @@ with aba_ficha:
         c1, c2, c3, c4, c5 = st.columns([2,1,1,1,1])
         c1.write(p.split("[")[0])
 
-        atributo = c2.selectbox(
+        c2.selectbox(
             "A", ATRIBUTOS,
             index=ATRIBUTOS.index(d["atributo"]),
             key=f"a_{p}",
+            on_change=atualizar_pericia,
+            args=(p,),
             label_visibility="collapsed"
         )
 
-        treino = c3.selectbox(
+        c3.selectbox(
             "T", [0,3,5],
             index=[0,3,5].index(d["treino"]),
             key=f"t_{p}",
+            on_change=atualizar_pericia,
+            args=(p,),
             label_visibility="collapsed"
         )
 
-        outros = c4.selectbox(
+        c4.selectbox(
             "O", list(range(11)),
             index=list(range(11)).index(d["outros"]),
             key=f"o_{p}",
+            on_change=atualizar_pericia,
+            args=(p,),
             label_visibility="collapsed"
         )
 
-        # 🔥 FORÇA atualização no session_state (isso ativa o autosave)
-        st.session_state.pericias[p] = {
-            "atributo": atributo,
-            "treino": treino,
-            "outros": outros
-        }
-
-        bonus = st.session_state.atributos[atributo] + treino + outros
+        bonus = (
+            st.session_state.atributos[
+                st.session_state.pericias[p]["atributo"]
+            ]
+            + st.session_state.pericias[p]["treino"]
+            + st.session_state.pericias[p]["outros"]
+        )
 
         c5.selectbox(
             "B", [bonus],
@@ -268,4 +279,5 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+
 

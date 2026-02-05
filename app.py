@@ -17,6 +17,16 @@ HEADERS = {
 
 # ================= FUNÇÕES SUPABASE =================
 def salvar_ficha(nome):
+
+    # 🔥 GARANTE QUE TODAS AS PERÍCIAS ESTÃO SINCRONIZADAS
+    for p in PERICIAS:
+        if f"a_{p}" in st.session_state:
+            st.session_state.pericias[p] = {
+                "atributo": st.session_state[f"a_{p}"],
+                "treino": st.session_state[f"t_{p}"],
+                "outros": st.session_state[f"o_{p}"]
+            }
+
     dados = {
         "hp": st.session_state.hp,
         "pe": st.session_state.pe,
@@ -33,7 +43,7 @@ def salvar_ficha(nome):
     payload = {
         "nome": nome,
         "dados": dados,
-        "pericias": st.session_state.pericias  # 👈 AGORA VAI EM COLUNA SEPARADA
+        "pericias": st.session_state.pericias
     }
 
     headers = HEADERS.copy()
@@ -54,12 +64,10 @@ def carregar_ficha(nome):
     if r.status_code == 200 and r.json():
         linha = r.json()[0]
 
-        # carrega dados principais
         for k, v in linha["dados"].items():
             st.session_state[k] = v
 
-        # carrega perícias da coluna separada
-        if linha.get("pericias"):
+        if "pericias" in linha and linha["pericias"]:
             st.session_state.pericias = linha["pericias"]
 
 
@@ -105,7 +113,6 @@ for k, v in defaults.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-
 # ================= FUNÇÕES =================
 def calcular_status(atributos, nivel, K):
     return (
@@ -117,16 +124,6 @@ def alterar(valor, chave, maximo=None):
     st.session_state[chave] += valor
     if maximo is not None:
         st.session_state[chave] = max(0, min(maximo, st.session_state[chave]))
-
-def rolar_expressao(expr, bonus=0):
-    match = re.match(r"(\d+)d(\d+)([+-]\d+)?", expr.replace(" ", "").lower())
-    if not match:
-        return None
-    qtd, lados = int(match.group(1)), int(match.group(2))
-    extra = int(match.group(3)) if match.group(3) else 0
-    rolagens = [random.randint(1, lados) for _ in range(qtd)]
-    return sum(rolagens) + extra + bonus, rolagens
-
 
 # ================= ABAS =================
 aba_status, aba_ficha, aba_inventario, aba_manobras, aba_combate = st.tabs(
@@ -161,13 +158,13 @@ with aba_status:
     st.subheader("Vida")
     a,b,c = st.columns([1,3,1])
     a.button("➖", key="hp_menos", on_click=alterar, args=(-1,"hp",hp_max))
-    b.progress(st.session_state.hp/hp_max if hp_max else 0, text=f"HP {st.session_state.hp}/{hp_max}")
+    b.progress(min(st.session_state.hp/hp_max if hp_max else 0,1.0), text=f"HP {st.session_state.hp}/{hp_max}")
     c.button("➕", key="hp_mais", on_click=alterar, args=(1,"hp",hp_max))
 
     st.subheader("Energia")
     a,b,c = st.columns([1,3,1])
     a.button("➖", key="pe_menos", on_click=alterar, args=(-1,"pe",pe_max))
-    b.progress(st.session_state.pe/pe_max if pe_max else 0, text=f"PE {st.session_state.pe}/{pe_max}")
+    b.progress(min(st.session_state.pe/pe_max if pe_max else 0,1.0), text=f"PE {st.session_state.pe}/{pe_max}")
     c.button("➕", key="pe_mais", on_click=alterar, args=(1,"pe",pe_max))
 
     st.subheader("Fadiga")
@@ -175,7 +172,6 @@ with aba_status:
     a.button("➖", key="fadiga_menos", on_click=alterar, args=(-1,"fadiga",5))
     b.progress(st.session_state.fadiga/5, text=f"Fadiga {st.session_state.fadiga}/5")
     c.button("➕", key="fadiga_mais", on_click=alterar, args=(1,"fadiga",5))
-
 
 # ================= PERÍCIAS =================
 with aba_ficha:
@@ -203,14 +199,9 @@ with aba_ficha:
         c4.selectbox("O", list(range(11)), index=list(range(11)).index(d["outros"]),
                      key=f"o_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
 
-        bonus = (
-            st.session_state.atributos[st.session_state.pericias[p]["atributo"]]
-            + st.session_state.pericias[p]["treino"]
-            + st.session_state.pericias[p]["outros"]
-        )
+        bonus = st.session_state.atributos[d["atributo"]] + d["treino"] + d["outros"]
 
         c5.selectbox("B", [bonus], key=f"b_{p}", disabled=True, label_visibility="collapsed")
-
 
 # ================= AUTO SAVE =================
 if nome:
@@ -250,7 +241,6 @@ with aba_inventario:
             st.session_state.inventario.pop(i)
             st.rerun()
 
-
 # ================= MANOBRAS =================
 with aba_manobras:
     st.subheader("⚔️ Manobras")
@@ -267,7 +257,6 @@ with aba_manobras:
             st.session_state.pe -= m["custo"]
             st.rerun()
 
-
 # ================= COMBATE =================
 with aba_combate:
     st.subheader("⚔️ Combate")
@@ -277,7 +266,3 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
-
-
-
-

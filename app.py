@@ -100,6 +100,7 @@ def montar_dados_ficha(nome, nivel, K, conhecimento, pericias_valores):
         "manobras": st.session_state.manobras,
         "armas": st.session_state.armas
     }
+
 # ================= ABAS =================
 aba_status, aba_ficha, aba_inventario, aba_manobras, aba_combate, aba_sistema = st.tabs(
     ["Status", "Perícias", "Inventário", "Manobras", "Combate", "Sistema"]
@@ -296,20 +297,25 @@ with aba_sistema:
 
     dados_ficha = montar_dados_ficha(nome, nivel, K, conhecimento, pericias_valores)
 
-    st.download_button(
-        "📥 Baixar Ficha",
-        data=json.dumps(dados_ficha, indent=4, ensure_ascii=False),
-        file_name=f"{nome}_ficha.json",
-        mime="application/json"
-    )
+    json_str = json.dumps(dados_ficha, indent=4, ensure_ascii=False)
 
-    st.divider()
-    st.subheader("📂 Carregar Ficha")
-arquivo = st.file_uploader("Envie sua ficha salva", type="json")
+st.download_button(
+    "💾 Baixar Ficha",
+    data=json_str.encode("utf-8"),   # força virar bytes fixos
+    file_name="ficha_rpg.json",
+    mime="application/json"
+)
 
-if arquivo is not None:
+
+st.divider()
+    
+st.subheader("📂 Carregar Ficha")
+
+arquivo = st.file_uploader("Envie sua ficha salva", type="json", key="upload_ficha")
+
+if arquivo is not None and "ficha_carregada" not in st.session_state:
     try:
-        dados = json.load(arquivo)
+        dados = json.loads(arquivo.getvalue().decode("utf-8"))
 
         st.session_state.hp = dados.get("hp", 0)
         st.session_state.pe = dados.get("pe", 0)
@@ -317,12 +323,16 @@ if arquivo is not None:
         st.session_state.atributos = dados.get("atributos", st.session_state.atributos)
         st.session_state.inventario = dados.get("inventario", [])
         st.session_state.manobras = dados.get("manobras", [])
-        st.session_state.armas = dados.get("armas", [])
 
-        st.success("Ficha carregada com sucesso! Atualize a página se algo não aparecer.")
-    
+        st.session_state.ficha_carregada = True  # trava para não reler o arquivo
+        st.success("Ficha carregada com sucesso!")
+
     except Exception as e:
         st.error(f"Erro ao carregar ficha: {e}")
 
-
+# Botão para permitir carregar outra depois
+if "ficha_carregada" in st.session_state:
+    if st.button("🔄 Carregar outra ficha"):
+        del st.session_state.ficha_carregada
+        st.rerun()
 

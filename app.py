@@ -115,6 +115,36 @@ def alterar(valor, chave, maximo=None):
     st.session_state[chave] += valor
     if maximo is not None:
         st.session_state[chave] = max(0, min(maximo, st.session_state[chave]))
+def calcular_bonus_pericia(atributo_valor, treino, outros):
+    return atributo_valor + treino + outros
+
+
+def rolar_expressao(expr, bonus=0):
+    expr = expr.replace(" ", "").lower()
+
+    # suporta "2#2d6+1" (2 rolagens de 2d6+1)
+    multi = 1
+    if "#" in expr:
+        multi, expr = expr.split("#")
+        multi = int(multi)
+
+    match = re.match(r"(\d+)d(\d+)([+-]\d+)?", expr)
+    if not match:
+        return None
+
+    qtd, lados = int(match.group(1)), int(match.group(2))
+    extra = int(match.group(3)) if match.group(3) else 0
+
+    totais = []
+    detalhes = []
+
+    for _ in range(multi):
+        rolagens = [random.randint(1, lados) for _ in range(qtd)]
+        total = sum(rolagens) + extra + bonus
+        totais.append(total)
+        detalhes.append(rolagens)
+
+    return totais, detalhes
 
 # ================= ABAS =================
 aba_status, aba_ficha, aba_inventario, aba_manobras, aba_combate = st.tabs(
@@ -189,24 +219,43 @@ with aba_ficha:
         c5.selectbox("B", [bonus], key=f"b_{p}", disabled=True, label_visibility="collapsed")
     
     st.divider()
-    st.subheader("🎲 Rolagem de Perícia")
+st.subheader("🎲 Rolagem de Perícia")
 
-    col1, col2 = st.columns([2,1])
-    pericia_roll = col1.selectbox("Escolha a perícia", list(pericias_valores.keys()))
-    expressao = col1.text_input("Digite a rolagem (ex: 2#2d6+1)", "2d6")
+pericias_valores = st.session_state.pericias
+atributos = st.session_state.atributos
 
-    if col2.button("Rolar Agora"):
-        dados_pericia = pericias_valores[pericia_roll]
-        atributo_valor = atributos.get(dados_pericia["atributo"], 0)
-        bonus_total = calcular_bonus_pericia(atributo_valor, dados_pericia["treino"], dados_pericia["outros"])
-        resultado = rolar_expressao(expressao, bonus_total)
+col1, col2 = st.columns([2,1])
 
-        if resultado:
-            totais, detalhes = resultado
-            for i, (t, d) in enumerate(zip(totais, detalhes), 1):
-                st.success(f"Rolagem {i}: 🎲 {d} = **{t}**")
-        else:
-            st.error("Expressão inválida!")
+pericia_roll = col1.selectbox(
+    "Escolha a perícia",
+    list(pericias_valores.keys())
+)
+
+expressao = col1.text_input(
+    "Digite a rolagem (ex: 2#2d6+1)",
+    "1d20"
+)
+
+if col2.button("Rolar Agora"):
+    dados_pericia = pericias_valores[pericia_roll]
+
+    atributo_valor = atributos.get(dados_pericia["atributo"], 0)
+
+    bonus_total = calcular_bonus_pericia(
+        atributo_valor,
+        dados_pericia["treino"],
+        dados_pericia["outros"]
+    )
+
+    resultado = rolar_expressao(expressao, bonus_total)
+
+    if resultado:
+        totais, detalhes = resultado
+        for i, (total, rolls) in enumerate(zip(totais, detalhes), 1):
+            st.success(f"Rolagem {i}: 🎲 {rolls} + bônus {bonus_total} = **{total}**")
+    else:
+        st.error("Expressão inválida! Use formato tipo 2d6, 1d20+3 ou 2#1d20")
+
 # ================= AUTO SAVE =================
 if nome:
     estado_dict = {
@@ -270,5 +319,6 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+
 
 

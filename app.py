@@ -27,9 +27,12 @@ def salvar_ficha(nome):
 
     payload = {"nome": nome, "dados": dados}
 
+    headers = HEADERS.copy()
+    headers["Prefer"] = "resolution=merge-duplicates"
+
     requests.post(
         f"{SUPABASE_URL}/rest/v1/fichas?on_conflict=nome",
-        headers=HEADERS,
+        headers=headers,
         data=json.dumps(payload)
     )
 
@@ -135,9 +138,8 @@ with aba_status:
     with col1:
         nome = st.text_input("Nome", "Personagem")
 
-        if "ficha_carregada" not in st.session_state or st.session_state.get("ultimo_nome") != nome:
+        if st.session_state.get("ultimo_nome") != nome:
             carregar_ficha(nome)
-            st.session_state.ficha_carregada = True
             st.session_state.ultimo_nome = nome
 
         nivel = st.number_input("Nível", min_value=1, value=1)
@@ -150,12 +152,12 @@ with aba_status:
 
     cols = st.columns(len(ATRIBUTOS))
     for i, a in enumerate(ATRIBUTOS):
-        st.session_state.atributos[a] = cols[i].number_input(a, min_value=0, value=st.session_state.atributos[a], key=f"atr_{a}")
+        novo_valor = cols[i].number_input(a, min_value=0, key=f"atr_{a}")
+        st.session_state.atributos[a] = novo_valor
 
     atributos = st.session_state.atributos
     hp_max, pe_max = calcular_status(atributos, nivel, K)
 
-    # 🔒 Garante que valores não ultrapassem o máximo
     st.session_state.hp = min(st.session_state.hp, hp_max)
     st.session_state.pe = min(st.session_state.pe, pe_max)
     st.session_state.fadiga = min(st.session_state.fadiga, 5)
@@ -274,3 +276,4 @@ with aba_combate:
 # ================= SALVAMENTO AUTOMÁTICO =================
 if nome:
     salvar_ficha(nome)
+

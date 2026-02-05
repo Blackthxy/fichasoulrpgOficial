@@ -4,6 +4,7 @@ import re
 import random
 import requests
 import json
+import copy
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
@@ -24,13 +25,17 @@ def salvar_ficha(nome):
         "inventario": st.session_state.inventario,
         "manobras": st.session_state.manobras,
         "armas": st.session_state.armas,
-        "pericias": st.session_state.pericias,
         "nivel": st.session_state.nivel,
         "K": st.session_state.K,
         "conhecimento": st.session_state.conhecimento
     }
 
-    payload = {"nome": nome, "dados": dados}
+    payload = {
+        "nome": nome,
+        "dados": dados,
+        "pericias": st.session_state.pericias  # 👈 AGORA VAI EM COLUNA SEPARADA
+    }
+
     headers = HEADERS.copy()
     headers["Prefer"] = "resolution=merge-duplicates"
 
@@ -47,8 +52,15 @@ def carregar_ficha(nome):
         headers=HEADERS
     )
     if r.status_code == 200 and r.json():
-        for k, v in r.json()[0]["dados"].items():
+        linha = r.json()[0]
+
+        # carrega dados principais
+        for k, v in linha["dados"].items():
             st.session_state[k] = v
+
+        # carrega perícias da coluna separada
+        if linha.get("pericias"):
+            st.session_state.pericias = linha["pericias"]
 
 
 # ================= CONFIG =================
@@ -182,51 +194,25 @@ with aba_ficha:
         c1, c2, c3, c4, c5 = st.columns([2,1,1,1,1])
         c1.write(p.split("[")[0])
 
-        c2.selectbox(
-            "A", ATRIBUTOS,
-            index=ATRIBUTOS.index(d["atributo"]),
-            key=f"a_{p}",
-            on_change=atualizar_pericia,
-            args=(p,),
-            label_visibility="collapsed"
-        )
+        c2.selectbox("A", ATRIBUTOS, index=ATRIBUTOS.index(d["atributo"]),
+                     key=f"a_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
 
-        c3.selectbox(
-            "T", [0,3,5],
-            index=[0,3,5].index(d["treino"]),
-            key=f"t_{p}",
-            on_change=atualizar_pericia,
-            args=(p,),
-            label_visibility="collapsed"
-        )
+        c3.selectbox("T", [0,3,5], index=[0,3,5].index(d["treino"]),
+                     key=f"t_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
 
-        c4.selectbox(
-            "O", list(range(11)),
-            index=list(range(11)).index(d["outros"]),
-            key=f"o_{p}",
-            on_change=atualizar_pericia,
-            args=(p,),
-            label_visibility="collapsed"
-        )
+        c4.selectbox("O", list(range(11)), index=list(range(11)).index(d["outros"]),
+                     key=f"o_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
 
         bonus = (
-            st.session_state.atributos[
-                st.session_state.pericias[p]["atributo"]
-            ]
+            st.session_state.atributos[st.session_state.pericias[p]["atributo"]]
             + st.session_state.pericias[p]["treino"]
             + st.session_state.pericias[p]["outros"]
         )
 
-        c5.selectbox(
-            "B", [bonus],
-            key=f"b_{p}",
-            disabled=True,
-            label_visibility="collapsed"
-        )
+        c5.selectbox("B", [bonus], key=f"b_{p}", disabled=True, label_visibility="collapsed")
+
 
 # ================= AUTO SAVE =================
-import copy
-
 if nome:
     estado_dict = {
         "hp": st.session_state.hp,
@@ -247,7 +233,6 @@ if nome:
     if st.session_state.get("ultimo_estado_salvo") != estado:
         salvar_ficha(nome)
         st.session_state.ultimo_estado_salvo = estado
-
 
 # ================= INVENTÁRIO =================
 with aba_inventario:
@@ -292,6 +277,7 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+
 
 
 

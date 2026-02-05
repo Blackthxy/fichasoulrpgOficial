@@ -17,8 +17,6 @@ HEADERS = {
 
 # ================= FUNÇÕES SUPABASE =================
 def salvar_ficha(nome):
-
-    # 🔥 GARANTE QUE TODAS AS PERÍCIAS ESTÃO SINCRONIZADAS
     for p in PERICIAS:
         if f"a_{p}" in st.session_state:
             st.session_state.pericias[p] = {
@@ -40,27 +38,17 @@ def salvar_ficha(nome):
         "conhecimento": st.session_state.conhecimento
     }
 
-    payload = {
-        "nome": nome,
-        "dados": dados,
-        "pericias": st.session_state.pericias
-    }
+    payload = {"nome": nome, "dados": dados, "pericias": st.session_state.pericias}
 
     headers = HEADERS.copy()
     headers["Prefer"] = "resolution=merge-duplicates"
 
-    requests.post(
-        f"{SUPABASE_URL}/rest/v1/fichas?on_conflict=nome",
-        headers=headers,
-        data=json.dumps(payload)
-    )
+    requests.post(f"{SUPABASE_URL}/rest/v1/fichas?on_conflict=nome",
+                  headers=headers, data=json.dumps(payload))
 
 
 def carregar_ficha(nome):
-    r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/fichas?nome=eq.{nome}",
-        headers=HEADERS
-    )
+    r = requests.get(f"{SUPABASE_URL}/rest/v1/fichas?nome=eq.{nome}", headers=HEADERS)
     if r.status_code == 200 and r.json():
         linha = r.json()[0]
 
@@ -69,6 +57,12 @@ def carregar_ficha(nome):
 
         if "pericias" in linha and linha["pericias"]:
             st.session_state.pericias = linha["pericias"]
+
+            # 🔥 injeta valores nos widgets
+            for p, dados in linha["pericias"].items():
+                st.session_state[f"a_{p}"] = dados["atributo"]
+                st.session_state[f"t_{p}"] = dados["treino"]
+                st.session_state[f"o_{p}"] = dados["outros"]
 
 
 # ================= CONFIG =================
@@ -115,10 +109,8 @@ for k, v in defaults.items():
 
 # ================= FUNÇÕES =================
 def calcular_status(atributos, nivel, K):
-    return (
-        10 * atributos["VIT"] + (atributos["VIT"] + nivel) * K,
-        5 * atributos["INT"] + (atributos["INT"] + nivel) * K
-    )
+    return (10 * atributos["VIT"] + (atributos["VIT"] + nivel) * K,
+            5 * atributos["INT"] + (atributos["INT"] + nivel) * K)
 
 def alterar(valor, chave, maximo=None):
     st.session_state[chave] += valor
@@ -190,17 +182,11 @@ with aba_ficha:
         c1, c2, c3, c4, c5 = st.columns([2,1,1,1,1])
         c1.write(p.split("[")[0])
 
-        c2.selectbox("A", ATRIBUTOS, index=ATRIBUTOS.index(d["atributo"]),
-                     key=f"a_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
+        c2.selectbox("A", ATRIBUTOS, key=f"a_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
+        c3.selectbox("T", [0,3,5], key=f"t_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
+        c4.selectbox("O", list(range(11)), key=f"o_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
 
-        c3.selectbox("T", [0,3,5], index=[0,3,5].index(d["treino"]),
-                     key=f"t_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
-
-        c4.selectbox("O", list(range(11)), index=list(range(11)).index(d["outros"]),
-                     key=f"o_{p}", on_change=atualizar_pericia, args=(p,), label_visibility="collapsed")
-
-        bonus = st.session_state.atributos[d["atributo"]] + d["treino"] + d["outros"]
-
+        bonus = st.session_state.atributos[st.session_state[f"a_{p}"]] + st.session_state[f"t_{p}"] + st.session_state[f"o_{p}"]
         c5.selectbox("B", [bonus], key=f"b_{p}", disabled=True, label_visibility="collapsed")
 
 # ================= AUTO SAVE =================
@@ -266,3 +252,4 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+

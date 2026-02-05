@@ -2,6 +2,47 @@
 import streamlit as st
 import re
 import random
+import requests
+import json
+
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
+
+HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json"
+}
+
+def salvar_ficha(nome):
+    dados = {
+        "hp": st.session_state.hp,
+        "pe": st.session_state.pe,
+        "fadiga": st.session_state.fadiga,
+        "atributos": st.session_state.atributos,
+        "inventario": st.session_state.inventario,
+        "manobras": st.session_state.manobras,
+        "armas": st.session_state.armas
+    }
+
+    payload = {"nome": nome, "dados": dados}
+
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/fichas?on_conflict=nome",
+        headers=HEADERS,
+        data=json.dumps(payload)
+    )
+
+def carregar_ficha(nome):
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/fichas?nome=eq.{nome}",
+        headers=HEADERS
+    )
+
+    if r.status_code == 200 and r.json():
+        dados = r.json()[0]["dados"]
+        for k, v in dados.items():
+            st.session_state[k] = v
 
 # ================= CONFIGURAÇÃO DA PÁGINA =================
 st.set_page_config(page_title="Ficha Digital RPG", layout="wide")
@@ -91,6 +132,11 @@ with aba_status:
     col1, col2 = st.columns(2)
     with col1:
         nome = st.text_input("Nome", "Personagem")
+    if "ficha_carregada" not in st.session_state:
+        carregar_ficha(nome)
+        st.session_state.ficha_carregada = True
+
+
         nivel = st.number_input("Nível", min_value=1, value=1)
         K = st.number_input("K", min_value=1, value=1)
     with col2:
@@ -212,3 +258,6 @@ with aba_combate:
         rolagens = [random.randint(1,lados) for _ in range(qtd)]
         total = sum(rolagens) + bonus_dano
         st.success(f"Dano: {rolagens} + {bonus_dano} = {total}")
+
+if nome:
+    salvar_ficha(nome)

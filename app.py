@@ -225,11 +225,24 @@ with aba_ficha:
         )
 
 # ================= AUTO SAVE =================
+import copy
+
 if nome:
-    estado = json.dumps({k: st.session_state[k] for k in [
-        "hp","pe","fadiga","atributos","inventario","manobras","armas",
-        "pericias","nivel","K","conhecimento"
-    ]}, sort_keys=True)
+    estado_dict = {
+        "hp": st.session_state.hp,
+        "pe": st.session_state.pe,
+        "fadiga": st.session_state.fadiga,
+        "atributos": copy.deepcopy(st.session_state.atributos),
+        "inventario": copy.deepcopy(st.session_state.inventario),
+        "manobras": copy.deepcopy(st.session_state.manobras),
+        "armas": copy.deepcopy(st.session_state.armas),
+        "pericias": copy.deepcopy(st.session_state.pericias),
+        "nivel": st.session_state.nivel,
+        "K": st.session_state.K,
+        "conhecimento": st.session_state.conhecimento
+    }
+
+    estado = json.dumps(estado_dict, sort_keys=True)
 
     if st.session_state.get("ultimo_estado_salvo") != estado:
         salvar_ficha(nome)
@@ -279,5 +292,6 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+
 
 

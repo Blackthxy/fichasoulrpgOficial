@@ -157,7 +157,7 @@ def rolar_expressao(expr, bonus=0):
 
 # ================= ABAS =================
 aba_status, aba_ficha, aba_inventario, aba_manobras, aba_combate = st.tabs(
-    ["Status", "Perícias", "Inventário", "Manobras", "Combate"]
+    ["Status", "Perícias", "Inventário", "Manobras/Habilidades", "Combate"]
 )
 
 # ================= STATUS =================
@@ -352,14 +352,14 @@ with aba_inventario:
 
 # ================= MANOBRAS =================
 with aba_manobras:
-    st.subheader("⚔️ Manobras")
+    st.subheader("⚔️ Manobras/Habilidades")
 
     # FORMULÁRIO ESCONDIDO
-    with st.expander("➕ Criar Nova Manobra", expanded=False):
+    with st.expander("➕ Criar Nova Manobra/Habilidade", expanded=False):
         with st.form("form_manobra"):
-            nome_m = st.text_input("Nome da Manobra")
+            nome_m = st.text_input("Nome da Manobra/Habilidade")
             custo_m = st.number_input("Custo de Fadiga", 0, 5, 0)
-            desc_m = st.text_area("Descrição da Manobra")
+            desc_m = st.text_area("Descrição da Manobra/Habilidade")
 
             if st.form_submit_button("Salvar Manobra"):
                 st.session_state.manobras.append({
@@ -373,7 +373,7 @@ with aba_manobras:
 
     # CARDS DAS MANOBRAS
     if not st.session_state.manobras:
-        st.info("Nenhuma manobra cadastrada.")
+        st.info("Nenhuma manobra/habilidade cadastrada.")
     else:
         for i, m in enumerate(st.session_state.manobras):
             with st.container(border=True):
@@ -412,6 +412,7 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+
 
 
 

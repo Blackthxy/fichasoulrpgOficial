@@ -4,10 +4,9 @@ import json
 import re
 import random
 
-# ================= CONFIGURAÇÃO DA PÁGINA =================
 st.set_page_config(page_title="Ficha Digital RPG", layout="wide")
 
-# ================= LISTAS FIXAS DO SISTEMA =================
+# ================= LISTAS =================
 ATRIBUTOS = ["FOR", "AGI", "PRE", "VIT", "INT"]
 
 PERICIAS = [
@@ -30,16 +29,12 @@ def extrair_atributo(nome_pericia):
     match = re.search(r"\[(.*?)\]", nome_pericia)
     return match.group(1) if match else None
 
-# ================= ESTADOS =================
+# ================= ESTADO =================
 def init_state():
     defaults = {
-        "hp": 0,
-        "pe": 0,
-        "fadiga": 5,
+        "hp": 0, "pe": 0, "fadiga": 5,
         "atributos": {a: 0 for a in ATRIBUTOS},
-        "inventario": [],
-        "manobras": [],
-        "armas": [],
+        "inventario": [], "manobras": [], "armas": [],
         "pericias_salvas": {}
     }
     for k, v in defaults.items():
@@ -61,37 +56,6 @@ def alterar(valor, chave, maximo=None):
     else:
         st.session_state[chave] = max(0, st.session_state[chave])
 
-def calcular_bonus_pericia(atributo, treino, outros):
-    return atributo + treino + outros
-
-def rolar_expressao(expr, bonus=0):
-    expr = expr.replace(" ", "").lower()
-    vezes = 1
-
-    if "#" in expr:
-        partes = expr.split("#")
-        vezes = int(partes[0])
-        expr = partes[1]
-
-    match = re.match(r"(\d+)d(\d+)([+-]\d+)?", expr)
-    if not match:
-        return None
-
-    qtd = int(match.group(1))
-    lados = int(match.group(2))
-    bonus_extra = int(match.group(3)) if match.group(3) else 0
-
-    resultados = []
-    detalhes = []
-
-    for _ in range(vezes):
-        rolagens = [random.randint(1, lados) for _ in range(qtd)]
-        total = sum(rolagens) + bonus_extra + bonus
-        resultados.append(total)
-        detalhes.append(f"{rolagens}+{bonus_extra}+{bonus}")
-
-    return resultados, detalhes
-
 def montar_dados_ficha(nome, nivel, K, conhecimento):
     return {
         "nome": nome,
@@ -109,11 +73,9 @@ def montar_dados_ficha(nome, nivel, K, conhecimento):
     }
 
 # ================= ABAS =================
-aba_status, aba_ficha, aba_inventario, aba_manobras, aba_combate, aba_sistema = st.tabs(
-    ["Status", "Perícias", "Inventário", "Manobras", "Combate", "Sistema"]
-)
+aba_status, aba_pericias, aba_sistema = st.tabs(["Status", "Perícias", "Sistema"])
 
-# ================= ABA STATUS =================
+# ================= STATUS =================
 with aba_status:
     col1, col2 = st.columns(2)
     with col1:
@@ -124,29 +86,31 @@ with aba_status:
         conhecimento = st.selectbox("Conhecimento", CONHECIMENTOS)
 
     st.divider()
+
     cols = st.columns(len(ATRIBUTOS))
     for i, a in enumerate(ATRIBUTOS):
-        st.session_state.atributos[a] = cols[i].number_input(a, min_value=0, value=st.session_state.atributos[a])
+        st.session_state.atributos[a] = cols[i].number_input(a, min_value=0, value=st.session_state.atributos[a], key=f"attr_{a}")
 
     atributos = st.session_state.atributos
     hp_max, pe_max = calcular_status(atributos, nivel, K)
+
     st.session_state.hp = min(st.session_state.hp, hp_max)
     st.session_state.pe = min(st.session_state.pe, pe_max)
 
     st.subheader("Vida")
     c1, c2, c3 = st.columns([1,3,1])
-    c1.button("➖", on_click=alterar, args=(-1,"hp",hp_max))
+    c1.button("➖", key="hp_down", on_click=alterar, args=(-1,"hp",hp_max))
     c2.progress(0 if hp_max == 0 else st.session_state.hp / hp_max, text=f"HP {st.session_state.hp}/{hp_max}")
-    c3.button("➕", on_click=alterar, args=(1,"hp",hp_max))
+    c3.button("➕", key="hp_up", on_click=alterar, args=(1,"hp",hp_max))
 
     st.subheader("Energia")
     c1, c2, c3 = st.columns([1,3,1])
-    c1.button("➖", on_click=alterar, args=(-1,"pe",pe_max))
+    c1.button("➖", key="pe_down", on_click=alterar, args=(-1,"pe",pe_max))
     c2.progress(0 if pe_max == 0 else st.session_state.pe / pe_max, text=f"PE {st.session_state.pe}/{pe_max}")
-    c3.button("➕", on_click=alterar, args=(1,"pe",pe_max))
+    c3.button("➕", key="pe_up", on_click=alterar, args=(1,"pe",pe_max))
 
-# ================= ABA PERÍCIAS =================
-with aba_ficha:
+# ================= PERÍCIAS =================
+with aba_pericias:
     st.subheader("Perícias")
 
     for pericia in PERICIAS:
@@ -169,28 +133,27 @@ with aba_ficha:
             "outros": outros
         }
 
-# ================= ABA SISTEMA =================
+# ================= SISTEMA =================
 with aba_sistema:
-    st.subheader("💾 Salvar Ficha")
+    st.subheader("Salvar Ficha")
     dados_ficha = montar_dados_ficha(nome, nivel, K, conhecimento)
     json_str = json.dumps(dados_ficha, indent=4, ensure_ascii=False)
 
-    st.download_button("Baixar Ficha", data=json_str, file_name="ficha_rpg.json")
+    st.download_button("Baixar Ficha", data=json_str, file_name="ficha_rpg.json", key="download_ficha")
 
     st.divider()
-    st.subheader("📂 Carregar Ficha")
+    st.subheader("Carregar Ficha")
 
-    uploaded_file = st.file_uploader("Selecione a ficha", type="json")
+    uploaded_file = st.file_uploader("Selecione a ficha", type="json", key="upload_ficha")
 
     if uploaded_file:
         try:
             dados = json.loads(uploaded_file.read().decode("utf-8"))
-
             for chave in ["hp","pe","fadiga","atributos","inventario","manobras","armas","pericias"]:
                 if chave in dados:
                     st.session_state[chave if chave != "pericias" else "pericias_salvas"] = dados[chave]
 
-            st.success("Ficha carregada! Atualizando...")
+            st.success("Ficha carregada!")
             st.rerun()
 
         except Exception as e:

@@ -44,6 +44,7 @@ def carregar_ficha(nome):
         for k, v in dados.items():
             st.session_state[k] = v
 
+
 # ================= CONFIGURAÇÃO DA PÁGINA =================
 st.set_page_config(page_title="Ficha Digital RPG", layout="wide")
 
@@ -130,15 +131,18 @@ aba_status, aba_ficha, aba_inventario, aba_manobras, aba_combate = st.tabs(
 # ================= ABA STATUS =================
 with aba_status:
     col1, col2 = st.columns(2)
+
     with col1:
         nome = st.text_input("Nome", "Personagem")
-    if "ficha_carregada" not in st.session_state:
-        carregar_ficha(nome)
-        st.session_state.ficha_carregada = True
 
+        if "ficha_carregada" not in st.session_state or st.session_state.get("ultimo_nome") != nome:
+            carregar_ficha(nome)
+            st.session_state.ficha_carregada = True
+            st.session_state.ultimo_nome = nome
 
         nivel = st.number_input("Nível", min_value=1, value=1)
         K = st.number_input("K", min_value=1, value=1)
+
     with col2:
         conhecimento = st.selectbox("Conhecimento", CONHECIMENTOS)
 
@@ -151,22 +155,30 @@ with aba_status:
     atributos = st.session_state.atributos
     hp_max, pe_max = calcular_status(atributos, nivel, K)
 
+    # 🔒 Garante que valores não ultrapassem o máximo
+    st.session_state.hp = min(st.session_state.hp, hp_max)
+    st.session_state.pe = min(st.session_state.pe, pe_max)
+    st.session_state.fadiga = min(st.session_state.fadiga, 5)
+
     st.subheader("Vida")
     c1, c2, c3 = st.columns([1,3,1])
     c1.button("➖", key="hp_menos_btn", on_click=alterar, args=(-1,"hp",hp_max))
-    c2.progress(st.session_state.hp / hp_max if hp_max else 0, text=f"HP {st.session_state.hp}/{hp_max}")
+    hp_ratio = min(st.session_state.hp / hp_max, 1.0) if hp_max else 0
+    c2.progress(hp_ratio, text=f"HP {st.session_state.hp}/{hp_max}")
     c3.button("➕", key="hp_mais_btn", on_click=alterar, args=(1,"hp",hp_max))
 
     st.subheader("Energia")
     c1, c2, c3 = st.columns([1,3,1])
     c1.button("➖", key="pe_menos_btn", on_click=alterar, args=(-1,"pe",pe_max))
-    c2.progress(st.session_state.pe / pe_max if pe_max else 0, text=f"PE {st.session_state.pe}/{pe_max}")
+    pe_ratio = min(st.session_state.pe / pe_max, 1.0) if pe_max else 0
+    c2.progress(pe_ratio, text=f"PE {st.session_state.pe}/{pe_max}")
     c3.button("➕", key="pe_mais_btn", on_click=alterar, args=(1,"pe",pe_max))
 
     st.subheader("Fadiga")
     c1, c2, c3 = st.columns([1,3,1])
     c1.button("➖", key="fadiga_menos_btn", on_click=alterar, args=(-1,"fadiga",5))
-    c2.progress(st.session_state.fadiga / 5, text=f"Fadiga {st.session_state.fadiga}/5")
+    fadiga_ratio = min(st.session_state.fadiga / 5, 1.0)
+    c2.progress(fadiga_ratio, text=f"Fadiga {st.session_state.fadiga}/5")
     c3.button("➕", key="fadiga_mais_btn", on_click=alterar, args=(1,"fadiga",5))
 
 # ================= ABA PERÍCIAS =================
@@ -259,5 +271,6 @@ with aba_combate:
         total = sum(rolagens) + bonus_dano
         st.success(f"Dano: {rolagens} + {bonus_dano} = {total}")
 
+# ================= SALVAMENTO AUTOMÁTICO =================
 if nome:
     salvar_ficha(nome)

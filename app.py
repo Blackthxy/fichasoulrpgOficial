@@ -25,6 +25,9 @@ def salvar_ficha(nome):
                 "outros": st.session_state[f"o_{p}"]
             }
 
+    # 🔥 ORDENA AS PERÍCIAS EM ORDEM ALFABÉTICA
+    pericias_ordenadas = dict(sorted(st.session_state.pericias.items()))
+
     dados = {
         "hp": st.session_state.hp,
         "pe": st.session_state.pe,
@@ -38,14 +41,20 @@ def salvar_ficha(nome):
         "conhecimento": st.session_state.conhecimento
     }
 
-    payload = {"nome": nome, "dados": dados, "pericias": st.session_state.pericias}
+    payload = {
+        "nome": nome,
+        "dados": dados,
+        "pericias": pericias_ordenadas  # 👈 agora vai ordenado
+    }
 
     headers = HEADERS.copy()
     headers["Prefer"] = "resolution=merge-duplicates"
 
-    requests.post(f"{SUPABASE_URL}/rest/v1/fichas?on_conflict=nome",
-                  headers=headers, data=json.dumps(payload))
-
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/fichas?on_conflict=nome",
+        headers=headers,
+        data=json.dumps(payload)
+    )
 
 def carregar_ficha(nome):
     r = requests.get(f"{SUPABASE_URL}/rest/v1/fichas?nome=eq.{nome}", headers=HEADERS)
@@ -339,6 +348,7 @@ with aba_combate:
     if st.button("Rolar Dano", key="rolar_dano"):
         r = [random.randint(1,l) for _ in range(q)]
         st.success(f"Dano: {r} + {b} = {sum(r)+b}")
+
 
 
 

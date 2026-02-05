@@ -85,6 +85,21 @@ def rolar_expressao(expr, bonus=0):
 
     return resultados, detalhes
 
+def montar_dados_ficha(nome, nivel, K, conhecimento, pericias_valores):
+    return {
+        "nome": nome,
+        "nivel": nivel,
+        "K": K,
+        "atributos": st.session_state.atributos,
+        "pericias": pericias_valores,
+        "conhecimento": conhecimento,
+        "hp": st.session_state.hp,
+        "pe": st.session_state.pe,
+        "fadiga": st.session_state.fadiga,
+        "inventario": st.session_state.inventario,
+        "manobras": st.session_state.manobras,
+        "armas": st.session_state.armas
+    }
 # ================= ABAS =================
 aba_status, aba_ficha, aba_inventario, aba_manobras, aba_combate, aba_sistema = st.tabs(
     ["Status", "Perícias", "Inventário", "Manobras", "Combate", "Sistema"]
@@ -277,35 +292,33 @@ with aba_combate:
 
 # ================= ABA SISTEMA =================
 with aba_sistema:
-    st.subheader("Salvar Ficha")
+    st.subheader("💾 Salvar Ficha")
 
-    dados = {
-        "nome": nome,
-        "nivel": nivel,
-        "K": K,
-        "atributos": st.session_state.atributos,
-        "pericias": pericias_valores,
-        "conhecimento": conhecimento,
-        "hp": st.session_state.hp,
-        "pe": st.session_state.pe,
-        "fadiga": st.session_state.fadiga,
-        "inventario": st.session_state.inventario,
-        "manobras": st.session_state.manobras,
-        "armas": st.session_state.armas
-    }
+    dados_ficha = montar_dados_ficha(nome, nivel, K, conhecimento, pericias_valores)
 
-    st.download_button("💾 Baixar Ficha", json.dumps(dados, indent=4, ensure_ascii=False), "ficha.json")
+    st.download_button(
+        "📥 Baixar Ficha",
+        data=json.dumps(dados_ficha, indent=4, ensure_ascii=False),
+        file_name=f"{nome}_ficha.json",
+        mime="application/json"
+    )
 
-    st.subheader("Carregar Ficha")
-    arquivo = st.file_uploader("Enviar ficha JSON", type="json")
+    st.divider()
+    st.subheader("📂 Carregar Ficha")
 
-    if arquivo:
+    arquivo = st.file_uploader("Envie sua ficha salva", type="json")
+
+    if arquivo is not None:
         dados = json.load(arquivo)
-        st.session_state.hp = dados["hp"]
-        st.session_state.pe = dados["pe"]
-        st.session_state.fadiga = dados["fadiga"]
-        st.session_state.atributos = dados["atributos"]
+
+        st.session_state.hp = dados.get("hp", 0)
+        st.session_state.pe = dados.get("pe", 0)
+        st.session_state.fadiga = dados.get("fadiga", 5)
+        st.session_state.atributos = dados.get("atributos", st.session_state.atributos)
         st.session_state.inventario = dados.get("inventario", [])
         st.session_state.manobras = dados.get("manobras", [])
         st.session_state.armas = dados.get("armas", [])
-        st.success("Ficha carregada!")
+
+        st.success("Ficha carregada com sucesso!")
+        st.rerun()
+

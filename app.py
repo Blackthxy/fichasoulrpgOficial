@@ -305,10 +305,10 @@ with aba_sistema:
 
     st.divider()
     st.subheader("📂 Carregar Ficha")
+arquivo = st.file_uploader("Envie sua ficha salva", type="json")
 
-    arquivo = st.file_uploader("Envie sua ficha salva", type="json")
-
-    if arquivo is not None:
+if arquivo is not None:
+    try:
         dados = json.load(arquivo)
 
         st.session_state.hp = dados.get("hp", 0)
@@ -319,6 +319,10 @@ with aba_sistema:
         st.session_state.manobras = dados.get("manobras", [])
         st.session_state.armas = dados.get("armas", [])
 
-        st.success("Ficha carregada com sucesso!")
-        st.rerun()
+        st.success("Ficha carregada com sucesso! Atualize a página se algo não aparecer.")
+    
+    except Exception as e:
+        st.error(f"Erro ao carregar ficha: {e}")
+
+
 
